@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    html { box-sizing: border-box; }
+    *, *:before, *:after { box-sizing: inherit; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    }
+    canvas { display: block; }
+    #unity-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    #unity-canvas {
+      width: 100%;
+      height: 100%;
+      background: #231F20;
+    }
+    #loading-cover {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #unity-loading-bar {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    #unity-logo { text-align: center; }
+    #unity-logo img {
+      max-width: 80%;
+      max-height: 80%;
+    }
+    #unity-progress-bar-empty {
+      width: 40%;
+      height: 24px;
+      margin: 10px 20px 20px 10px;
+      text-align: left;
+      border: 1px solid white;
+      padding: 2px;
+    }
+    #unity-progress-bar-full {
+      width: 0;
+      height: 100%;
+      background: white;
+    }
+    .light #unity-progress-bar-empty { border-color: black; }
+    .light #unity-progress-bar-full { background: black; }
+    .spinner,
+    .spinner:after {
+      border-radius: 50%;
+      width: 5em;
+      height: 5em;
+    }
+    .spinner {
+      margin: 10px;
+      font-size: 10px;
+      position: relative;
+      text-indent: -9999em;
+      border-top: 1.1em solid rgba(255, 255, 255, 0.2);
+      border-right: 1.1em solid rgba(255, 255, 255, 0.2);
+      border-bottom: 1.1em solid rgba(255, 255, 255, 0.2);
+      border-left: 1.1em solid #ffffff;
+      transform: translateZ(0);
+      animation: spinner-spin 1.1s infinite linear;
+    }
+    @keyframes spinner-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    #button {
+      display: none;
+    }
+    .imgb_vis {
+      animation: imgb-animation 7s linear;
+    }
+    @keyframes imgb-animation {
+      10% { transform: translateX(0); }
+      20% { transform: translateX(100px); }
+      90% { transform: translateX(100px); }
+      100% { transform: translateX(0); }
+    }
+  </style>
+  <script>
+    window.console = {
+      log: function () {},
+      warn: function () {},
+      error: function () {},
+      info: function () {},
+      debug: function () {},
+      trace: function () {},
+      table: function () {},
+      assert: function () {}
+    };
+  </script>
+  <script>
+    window.SDK_OPTIONS = {
+      gameId: "r2tzpy9cgrn2u4xgzc9z0zbtvxm16mby",
+      onEvent: function (event) {
+        switch (event.name) {
+          case "SDK_GAME_PAUSE":
+          case "SDK_GAME_START":
+          case "SDK_READY":
+            break;
+        }
+      }
+    };
+
+    (function (doc, tag, id) {
+      const firstScript = doc.getElementsByTagName(tag)[0];
+      if (!doc.getElementById(id)) {
+        const script = doc.createElement(tag);
+        script.id = id;
+        script.src = "https://cdn.jsdelivr.net/gh/st39/sdk@main/sdkjs.js";
+        firstScript.parentNode.insertBefore(script, firstScript);
+      }
+    }(document, "script", "gamemonetize-sdk"));
+  </script>
+</head>
+<body class="dark">
+  <div id="unity-container" class="unity-desktop">
+    <canvas id="unity-canvas"></canvas>
+  </div>
+  <div id="loading-cover">
+    <div id="unity-loading-bar">
+      <div id="unity-progress-bar-empty">
+        <div id="unity-progress-bar-full"></div>
+      </div>
+      <div class="spinner" style="display: none;"></div>
+    </div>
+  </div>
+
+  <script>
+    HTMLCanvasElement.prototype.requestPointerLock = function () {};
+  </script>
+  <script>
+    const hideFullScreenButton = "";
+    const buildUrl = "https://cdn.jsdelivr.net/gh/jegdhaum/dev@fa20f69429655f8563e7401eac4f99d4e466bfa2/src/w";
+    const loaderUrl = buildUrl + "/dev.js";
+    const config = {
+      dataUrl: buildUrl + "/devsabd.js",
+      frameworkUrl: buildUrl + "/devsabf.js",
+      codeUrl: buildUrl + "/devsabw.js",
+      streamingAssetsUrl: buildUrl + "/StreamingAssets"
+    };
+
+    const container = document.querySelector("#unity-container");
+    const canvas = document.querySelector("#unity-canvas");
+    const loadingCover = document.querySelector("#loading-cover");
+    const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
+    const progressBarFull = document.querySelector("#unity-progress-bar-full");
+    const spinner = document.querySelector(".spinner");
+
+    const canFullscreen = (function () {
+      for (const key of [
+        "exitFullscreen",
+        "webkitExitFullscreen",
+        "webkitCancelFullScreen",
+        "mozCancelFullScreen",
+        "msExitFullscreen"
+      ]) {
+        if (key in document) {
+          return true;
+        }
+      }
+      return false;
+    }());
+
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      container.className = "unity-mobile";
+    }
+
+    loadingCover.style.display = "";
+    document.addEventListener("contextmenu", (event) => event.preventDefault());
+
+    function focusGame() {
+      window.focus();
+      canvas.focus();
+    }
+
+    window.addEventListener("pointerdown", focusGame);
+    window.addEventListener("touchstart", focusGame);
+
+    let StartUnityInstance;
+    let myGameInstance;
+    let ysdk = null;
+
+    function isMobileDevice() {
+      const ua = navigator.userAgent || navigator.vendor || window.opera;
+      const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
+      return (/android/i.test(ua) && !/mobile/i.test(ua)) ||
+        (/iPad|Tablet|PlayBook/i.test(ua)) ||
+        (/Mobile|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) ||
+        (isTouch && /Macintosh/i.test(ua));
+    }
+
+    if (isMobileDevice()) {
+      window.environmentData = {
+        language: "en",
+        domain: "default_domain",
+        deviceType: "mobile",
+        appID: "default_app_id",
+        browserLang: navigator.language || "en"
+      };
+    } else {
+      window.environmentData = "null";
+      window.jsonEnvir = {
+        language: "en",
+        domain: "default_domain",
+        deviceType: "desktop",
+        appID: "default_app_id",
+        browserLang: navigator.language || "en"
+      };
+    }
+
+    let cloudSaves = "noData";
+    let paymentsData = "none";
+    let playerData = "noData";
+    let player = null;
+    let payments = null;
+    let initGame = false;
+    let nowFullAdOpen = false;
+    let lastAdTime = 0;
+    let leaderboard = null;
+    let photoSizeForInit = null;
+    let scopesForInit = null;
+    let letGameReadyApi = false;
+
+    function parseUnityPrefs(bytes) {
+      const header = bytes.slice(0, 16);
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      let offset = 16;
+      const entries = [];
+
+      while (offset < bytes.length) {
+        const keyLen = view.getUint8(offset);
+        offset += 1;
+
+        let key = "";
+        for (let i = 0; i < keyLen; i += 1) {
+          key += String.fromCharCode(view.getUint8(offset));
+          offset += 1;
+        }
+
+        const typeOrLen = view.getUint8(offset);
+        offset += 1;
+        let value;
+        let kind;
+
+        if (typeOrLen === 253) {
+          kind = "float";
+          value = view.getFloat32(offset, true);
+          offset += 4;
+        } else if (typeOrLen === 254) {
+          kind = "int";
+          value = view.getInt32(offset, true);
+          offset += 4;
+        } else {
+          kind = "string";
+          value = "";
+          for (let i = 0; i < typeOrLen; i += 1) {
+            value += String.fromCharCode(view.getUint8(offset));
+            offset += 1;
+          }
+        }
+
+        entries.push({ key, kind, value });
+      }
+
+      return { header, entries };
+    }
+
+    function serializeUnityPrefs(header, entries) {
+      let totalLength = header.length;
+      for (const entry of entries) {
+        totalLength += 1 + entry.key.length + 1;
+        totalLength += entry.kind === "string" ? String(entry.value).length : 4;
+      }
+
+      const bytes = new Uint8Array(totalLength);
+      bytes.set(header, 0);
+      const view = new DataView(bytes.buffer);
+      let offset = header.length;
+
+      for (const entry of entries) {
+        bytes[offset] = entry.key.length;
+        offset += 1;
+
+        for (let i = 0; i < entry.key.length; i += 1) {
+          bytes[offset] = entry.key.charCodeAt(i);
+          offset += 1;
+        }
+
+        if (entry.kind === "float") {
+          bytes[offset] = 253;
+          offset += 1;
+          view.setFloat32(offset, Number(entry.value), true);
+          offset += 4;
+        } else if (entry.kind === "int") {
+          bytes[offset] = 254;
+          offset += 1;
+          view.setInt32(offset, Number(entry.value), true);
+          offset += 4;
+        } else {
+          const stringValue = String(entry.value);
+          bytes[offset] = stringValue.length;
+          offset += 1;
+          for (let i = 0; i < stringValue.length; i += 1) {
+            bytes[offset] = stringValue.charCodeAt(i);
+            offset += 1;
+          }
+        }
+      }
+
+      return bytes;
+    }
+
+    async function patchBrainrotPrefs() {
+      if (!indexedDB.databases) {
+        return;
+      }
+
+      const dbNames = (await indexedDB.databases()).map((db) => db.name).filter(Boolean);
+      if (!dbNames.includes("/idbfs")) {
+        return;
+      }
+
+      await new Promise((resolve) => {
+        const request = indexedDB.open("/idbfs");
+
+        request.onerror = function () {
+          resolve();
+        };
+
+        request.onsuccess = function () {
+          const db = request.result;
+          const tx = db.transaction(["FILE_DATA"], "readwrite");
+          const store = tx.objectStore("FILE_DATA");
+          const keyRequest = store.getAllKeys();
+
+          keyRequest.onerror = function () {
+            resolve();
+          };
+
+          keyRequest.onsuccess = function () {
+            const playerPrefsKey = keyRequest.result.find((key) => String(key).includes("PlayerPrefs"));
+            if (!playerPrefsKey) {
+              resolve();
+              return;
+            }
+
+            const valueRequest = store.get(playerPrefsKey);
+            valueRequest.onerror = function () {
+              resolve();
+            };
+
+            valueRequest.onsuccess = function () {
+              const record = valueRequest.result;
+              if (!record || !record.contents) {
+                resolve();
+                return;
+              }
+
+              const parsed = parseUnityPrefs(record.contents);
+              const entryMap = new Map(parsed.entries.map((entry) => [entry.key, entry]));
+
+              if (entryMap.has("previousCoinsBrainrot")) {
+                entryMap.get("previousCoinsBrainrot").kind = "int";
+                entryMap.get("previousCoinsBrainrot").value = 99999999;
+              } else {
+                parsed.entries.push({ key: "previousCoinsBrainrot", kind: "int", value: 99999999 });
+              }
+
+              if (entryMap.has("FirstSessionPlayedBrainrot")) {
+                entryMap.get("FirstSessionPlayedBrainrot").kind = "int";
+                entryMap.get("FirstSessionPlayedBrainrot").value = 1;
+              }
+
+              for (let i = 1; i <= 120; i += 1) {
+                const key = "donat_player_" + i;
+                if (entryMap.has(key)) {
+                  entryMap.get(key).kind = "int";
+                  entryMap.get(key).value = 1;
+                } else {
+                  parsed.entries.push({ key, kind: "int", value: 1 });
+                }
+              }
+
+              record.contents = serializeUnityPrefs(parsed.header, parsed.entries);
+              store.put(record, playerPrefsKey);
+              tx.oncomplete = function () {
+                resolve();
+              };
+              tx.onerror = function () {
+                resolve();
+              };
+            };
+          };
+        };
+      });
+    }
+
+    function GetPayments() {
+      return Promise.resolve("none");
+    }
+
+    function canShowAd() {
+      const now = Date.now();
+      return now - lastAdTime > 30000;
+    }
+
+    function FullAdShow() {
+      if (!canShowAd()) {
+        if (myGameInstance) {
+          myGameInstance.SendMessage("YandexGame", "CloseFullAd", "false");
+        }
+        return;
+      }
+
+      try {
+        if (nowFullAdOpen) {
+          return;
+        }
+
+        nowFullAdOpen = true;
+        lastAdTime = Date.now();
+
+        if (typeof sdk !== "undefined" && typeof sdk.showBanner === "function") {
+          sdk.showBanner();
+          setTimeout(function () {
+            nowFullAdOpen = false;
+            myGameInstance.SendMessage("YandexGame", "CloseFullAd", "true");
+            focusGame();
+          }, 3000);
+        } else {
+          nowFullAdOpen = false;
+          myGameInstance.SendMessage("YandexGame", "CloseFullAd", "false");
+          focusGame();
+        }
+      } catch (e) {
+        nowFullAdOpen = false;
+        myGameInstance.SendMessage("YandexGame", "CloseFullAd", "false");
+        focusGame();
+      }
+    }
+
+    function RewardedShow(id) {
+      if (!canShowAd()) {
+        myGameInstance.SendMessage("YandexGame", "RewardUnavailable");
+        return;
+      }
+
+      try {
+        lastAdTime = Date.now();
+        if (typeof sdk !== "undefined" && typeof sdk.showBanner === "function") {
+          sdk.showBanner();
+          setTimeout(function () {
+            myGameInstance.SendMessage("YandexGame", "RewardVideo", id);
+            myGameInstance.SendMessage("YandexGame", "CloseVideo");
+            focusGame();
+          }, 3000);
+        } else {
+          myGameInstance.SendMessage("YandexGame", "RewardVideo", id);
+          myGameInstance.SendMessage("YandexGame", "CloseVideo");
+          focusGame();
+        }
+      } catch (e) {
+        myGameInstance.SendMessage("YandexGame", "ErrorVideo");
+        focusGame();
+      }
+    }
+
+    function FocusGame() {
+      if (document.hasFocus && !document.hasFocus()) {
+        window.focus();
+      }
+    }
+
+    try {
+      patchBrainrotPrefs().finally(function () {
+        const script = document.createElement("script");
+        script.src = loaderUrl;
+        script.onload = function () {
+          StartUnityInstance = function () {
+            createUnityInstance(canvas, config, (progress) => {
+              spinner.style.display = "none";
+              progressBarEmpty.style.display = "";
+              progressBarFull.style.width = `${100 * progress}%`;
+            }).then((unityInstance) => {
+              myGameInstance = unityInstance;
+              loadingCover.style.display = "none";
+            }).catch(() => {});
+          };
+          StartUnityInstance();
+        };
+        document.body.appendChild(script);
+      });
+    } catch {}
+
+    function GetLeaderboardScores() {}
+    function ConsumePurchases() {}
+
+    function OpenAuthDialog() {
+      if (myGameInstance) {
+        myGameInstance.SendMessage("YandexGame", "GetDataInvoke");
+      }
+    }
+
+    function SaveCloud(jsonData, flush) {
+      if (player == null) {
+        return;
+      }
+      try {
+        player.setData({
+          saves: [jsonData]
+        }, flush);
+      } catch (e) {}
+    }
+
+    function InitLeaderboard() {
+      try {
+        ysdk.getLeaderboards().then((_lb) => {
+          leaderboard = _lb;
+          myGameInstance.SendMessage("YandexGame", "InitializedLB");
+        });
+      } catch (e) {}
+    }
+
+    function InitGame(photoSize, scopes, gameReadyApi) {
+      initGame = true;
+      photoSizeForInit = photoSize;
+      scopesForInit = scopes;
+      letGameReadyApi = gameReadyApi;
+
+      if (nowFullAdOpen === true) {
+        myGameInstance.SendMessage("YandexGame", "OpenFullAd");
+      }
+    }
+
+    function GameReadyAPI() {
+      if (letGameReadyApi) {
+        return;
+      }
+    }
+
+  </script>
+</body>
+</html>
